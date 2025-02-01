@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/gob"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	// "github.com/sryosz/sharing-file-system/internal/message"
+	"github.com/sryosz/sharing-file-system/internal/message"
 	"github.com/sryosz/sharing-file-system/internal/peers"
 	"github.com/sryosz/sharing-file-system/internal/storage"
 )
@@ -99,29 +101,35 @@ func (s *Server) handleGetMessage(from string, msg *GetMessage) error {
 		return fmt.Errorf("no such file on disk")
 	}
 
+	fmt.Printf("search for file (%s)\n", msg.Key)
+
 	p, ok := s.peers[from]
 	if !ok {
 		return fmt.Errorf("not found in map of peers")
 	}
 
-	r, err := s.storage.Read(msg.Key)
+	fileSize, r, err := s.storage.Read(msg.Key)
 	if err != nil {
 		return err
 	}
+
+	p.Send([]byte{message.IncomingStream})
+	binary.Write(p,  binary.LittleEndian, &fileSize)
 
 	n, err := io.Copy(p, r)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Read %d bytes from disk\n", n)
+	fmt.Printf("Read and written %d bytes from disk to the peer\n", n)
 
 	return nil
 }
 
 func (s *Server) Get(key string) (io.Reader, error) {
 	if s.storage.Has(key) {
-		return s.storage.Read(key)
+		_, r, err := s.storage.Read(key)
+		return r, err
 	}
 
 	log.Println("cant find data locally. Fetching from the network")
@@ -136,17 +144,25 @@ func (s *Server) Get(key string) (io.Reader, error) {
 		return nil, err
 	}
 
-	time.Sleep(time.Second * 3)
+	time.Sleep(time.Second * 2)
 
 	for _, p := range s.peers {
-		buf := new(bytes.Buffer)
-		_, err := io.Copy(buf, p)
+		var fileSize int64
+		binary.Read(p, binary.LittleEndian, &fileSize)
+
+		n, err := s.storage.Write(key, io.LimitReader(p, fileSize))
 		if err != nil {
 			return nil, err
 		}
+
+		fmt.Printf("[%s] Received and written %d bytes to the disk\n", p.RemoteAddr(), n)
+
+		p.CloseStream()
 	}
 
-	return nil, nil
+	_, r, err := s.storage.Read(key)
+
+	return r, err
 }
 
 func (s *Server) Store(key string, r io.Reader) error {
@@ -169,23 +185,17 @@ func (s *Server) Store(key string, r io.Reader) error {
 		return err
 	}
 
-	time.Sleep(3 * time.Second)
+	time.Sleep(2 * time.Second)
 
 	for _, p := range s.peers {
-		n, err := io.Copy(p, buf)
+		p.Send([]byte{message.IncomingStream})
+		n, err := p.Write(buf.Bytes())
 		if err != nil {
 			return err
 		}
 
-		fmt.Printf("[%s]received and written bytes to disk: %d\n", p.RemoteAddr().String(), n)
+		fmt.Printf("[%s] received and written bytes to disk: %d\n", p.RemoteAddr().String(), n)
 	}
-
-	// peers := []io.Writer{}
-	// for _, p := range s.peers {
-	// 	peers = append(peers, p)
-	// }
-
-	// todo: duplicates data
 
 	return nil
 }
@@ -197,7 +207,7 @@ func (s *Server) broadcast(msg *Message) error {
 	}
 
 	for _, p := range s.peers {
-		// p.Send([]byte{message.IncomingMsg})
+		p.Send([]byte{message.IncomingMsg})
 		if err := p.Send(buf.Bytes()); err != nil {
 			return err
 		}

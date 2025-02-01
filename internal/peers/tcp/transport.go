@@ -92,7 +92,7 @@ func (t *TCPTransport) Accept() {
 			if errors.Is(err, net.ErrClosed) {
 				return
 			} else {
-				fmt.Println("TCP accept error: ", err.Error())
+					fmt.Println("TCP accept error: ", err.Error())
 			}
 		}
 
@@ -121,22 +121,25 @@ func (t *TCPTransport) handleConn(conn net.Conn, outbound bool) {
 		}
 	}
 
-	msg := message.PeerMsg{}
+	
 
 	for {
+		msg := message.PeerMsg{}
 		if err := t.Decoder.Decode(conn, &msg); err != nil {
 			fmt.Printf("Failed to decode msg: %s", err.Error())
 		}
 
 		msg.From = conn.RemoteAddr().String()
 
-		// if msg.Stream {
-		peer.wg.Add(1)
-		fmt.Println("Incoming stream. Waiting")
+		if msg.Stream {
+			peer.wg.Add(1)
+			fmt.Println("Incoming stream. Waiting")
+			peer.wg.Wait()
+			fmt.Println("Stream is done")
+			continue
+		}
+
 		t.Ch <- msg
-		peer.wg.Wait()
-		fmt.Println("Stream is done")
-		// }
 
 	}
 }

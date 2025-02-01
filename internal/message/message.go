@@ -8,4 +8,5 @@ const (
 type PeerMsg struct {
 	From    string
 	Payload []byte
+	Stream  bool
 }
