@@ -78,14 +78,14 @@ func (t *TCPTransport) Listen() error {
 		return err
 	}
 
-	go t.accept()
+	go t.Accept()
 
 	fmt.Printf("TCP transport listening on port: %s\n", t.listener.Addr())
 
 	return nil
 }
 
-func (t *TCPTransport) accept() {
+func (t *TCPTransport) Accept() {
 	for {
 		conn, err := t.listener.Accept()
 		if err != nil {

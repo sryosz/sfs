@@ -9,7 +9,7 @@ import (
 	"time"
 
 	sfsencoding "github.com/sryosz/sharing-file-system/internal/encoding"
-	"github.com/sryosz/sharing-file-system/internal/peers"
+	tcptransport "github.com/sryosz/sharing-file-system/internal/peers/tcp"
 	"github.com/sryosz/sharing-file-system/internal/server"
 	"github.com/sryosz/sharing-file-system/internal/storage"
 )
@@ -54,12 +54,12 @@ func main() {
 }
 
 func makeServer(listenAddr string, nodes ...string) *server.Server {
-	tcpTransportOpts := peers.TCPTransportOpts{
+	tcpTransportOpts := tcptransport.TCPTransportOpts{
 		ListenAddr: listenAddr,
 		Decoder:    &sfsencoding.DefaultDecoder{},
 	}
 
-	tcpTransport := peers.NewTCPTransport(tcpTransportOpts)
+	tcpTransport := tcptransport.NewTCPTransport(tcpTransportOpts)
 
 	serverOpts := server.ServerOpts{
 		ID:                listenAddr,

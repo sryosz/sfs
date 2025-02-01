@@ -15,7 +15,7 @@ type Transport interface {
 	Addr() string
 	Dial(string) error
 	Listen() error
-	accept()
+	Accept()
 	Consume() <-chan message.PeerMsg
 	Close() error
 }
