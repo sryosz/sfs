@@ -42,7 +42,7 @@ type StoreMessage struct {
 	Size int64
 }
 
-type GetMessage struct{
+type GetMessage struct {
 	Key string
 }
 
@@ -82,7 +82,7 @@ func (s *Server) handleStoreMessage(from string, msg *StoreMessage) error {
 		return fmt.Errorf("peer (%s) could not be found in the peer list", from)
 	}
 
-	n, err := s.storage.Write(from, io.LimitReader(peer, msg.Size))
+	n, err := s.storage.Write(msg.Key, io.LimitReader(peer, msg.Size))
 	if err != nil {
 		return err
 	}
@@ -94,23 +94,23 @@ func (s *Server) handleStoreMessage(from string, msg *StoreMessage) error {
 	return nil
 }
 
-func (s *Server) handleGetMessage(from string, msg *GetMessage)  error {
-	if !s.storage.Has(msg.Key){
+func (s *Server) handleGetMessage(from string, msg *GetMessage) error {
+	if !s.storage.Has(msg.Key) {
 		return fmt.Errorf("no such file on disk")
 	}
 
 	p, ok := s.peers[from]
-	if !ok{
+	if !ok {
 		return fmt.Errorf("not found in map of peers")
 	}
 
 	r, err := s.storage.Read(msg.Key)
-	if err != nil{
+	if err != nil {
 		return err
 	}
 
 	n, err := io.Copy(p, r)
-	if err != nil{
+	if err != nil {
 		return err
 	}
 
@@ -119,8 +119,8 @@ func (s *Server) handleGetMessage(from string, msg *GetMessage)  error {
 	return nil
 }
 
-func (s *Server) Get(key string) (io.Reader, error){
-	if s.storage.Has(key){
+func (s *Server) Get(key string) (io.Reader, error) {
+	if s.storage.Has(key) {
 		return s.storage.Read(key)
 	}
 
@@ -132,16 +132,16 @@ func (s *Server) Get(key string) (io.Reader, error){
 		},
 	}
 
-	if err := s.broadcast(msg); err != nil{
+	if err := s.broadcast(msg); err != nil {
 		return nil, err
 	}
 
 	time.Sleep(time.Second * 3)
 
-	for _, p := range s.peers{
+	for _, p := range s.peers {
 		buf := new(bytes.Buffer)
 		_, err := io.Copy(buf, p)
-		if err != nil{
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -186,7 +186,6 @@ func (s *Server) Store(key string, r io.Reader) error {
 	// }
 
 	// todo: duplicates data
-	
 
 	return nil
 }
